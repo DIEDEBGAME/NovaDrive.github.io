@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Drive - Tu Almacenamiento Seguro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-md">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center relative overflow-hidden">
+            <div class="absolute -top-12 -left-12 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-12 -right-12 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl"></div>
+
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600/20 text-indigo-400 mb-6 border border-indigo-500/30">
+                <i data-lucide="hard-drive" class="w-8 h-8"></i>
+            </div>
+            
+            <h1 class="text-3xl font-bold tracking-tight text-white mb-2">Personal Drive</h1>
+            <p class="text-slate-400 text-sm mb-6">Guarda y descarga tus archivos de forma permanente asociándolos a tu cuenta de Gmail.</p>
+
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                <div class="text-left">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Correo de Gmail</label>
+                    <div class="relative">
+                        <i data-lucide="mail" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="email" id="emailInput" required placeholder="tu_usuario@gmail.com" 
+                            class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+                <div class="text-left">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Nombre de Usuario</label>
+                    <div class="relative">
+                        <i data-lucide="user" class="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="text" id="nameInput" placeholder="Ej. Carlos Mendoza" 
+                            class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+                <button type="submit" 
+                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-indigo-600/25 transition duration-200 flex items-center justify-center gap-2">
+                    <i data-lucide="log-in" class="w-4 h-4"></i> Iniciar Sesión con Gmail
+                </button>
+            </form>
+            <p class="text-xs text-slate-500 mt-6">Todos los archivos quedan vinculados únicamente al correo ingresado mediante IndexedDB local.</p>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="app" class="hidden flex-1 flex flex-col h-screen overflow-hidden">
+        
+        <!-- NAVBAR -->
+        <header class="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur px-6 flex items-center justify-between z-20">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                    <i data-lucide="hard-drive" class="w-5 h-5"></i>
+                </div>
+                <span class="font-bold text-lg bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">PersonalDrive</span>
+            </div>
+
+            <!-- SEARCH BAR -->
+            <div class="flex-1 max-w-xl mx-8">
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="searchInput" oninput="renderFiles()" placeholder="Buscar archivos y carpetas..." 
+                        class="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl py-2 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+                </div>
+            </div>
+
+            <!-- USER PROFILE & LOGOUT -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3 bg-slate-800/50 border border-slate-700/50 rounded-full py-1 px-3">
+                    <div id="userAvatar" class="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold uppercase">U</div>
+                    <div class="text-left hidden sm:block">
+                        <p id="userName" class="text-xs font-medium text-slate-200 leading-tight">Usuario</p>
+                        <p id="userEmail" class="text-[10px] text-slate-400 leading-tight">email@gmail.com</p>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" title="Cerrar sesión" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-xl transition">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden">
+            <!-- SIDEBAR -->
+            <aside class="w-64 border-r border-slate-800 bg-slate-900/30 p-4 flex flex-col justify-between">
+                <div class="space-y-6">
+                    <!-- ACTION BUTTONS -->
+                    <div class="space-y-2">
+                        <button onclick="document.getElementById('fileInput').click()" 
+                            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-600/20 transition flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Archivos
+                        </button>
+                        <button onclick="openFolderModal()" 
+                            class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium py-2 px-4 rounded-xl border border-slate-700 transition flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="folder-plus" class="w-4 h-4"></i> Nueva Carpeta
+                        </button>
+                    </div>
+
+                    <!-- HIDDEN INPUTS -->
+                    <input type="file" id="fileInput" multiple onchange="handleFileUpload(event)" class="hidden">
+
+                    <!-- NAVIGATION CATEGORIES -->
+                    <nav class="space-y-1">
+                        <button onclick="setCategory('all')" id="nav-all" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition bg-indigo-600/10 text-indigo-400 border border-indigo-500/20">
+                            <span class="flex items-center gap-2.5"><i data-lucide="hard-drive" class="w-4 h-4"></i> Mi Unidad</span>
+                            <span id="count-all" class="text-xs bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">0</span>
+                        </button>
+                        <button onclick="setCategory('starred')" id="nav-starred" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                            <span class="flex items-center gap-2.5"><i data-lucide="star" class="w-4 h-4"></i> Destacados</span>
+                            <span id="count-starred" class="text-xs bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">0</span>
+                        </button>
+                        <button onclick="setCategory('image')" id="nav-image" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                            <span class="flex items-center gap-2.5"><i data-lucide="image" class="w-4 h-4"></i> Imágenes</span>
+                        </button>
+                        <button onclick="setCategory('document')" id="nav-document" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                            <span class="flex items-center gap-2.5"><i data-lucide="file-text" class="w-4 h-4"></i> Documentos</span>
+                        </button>
+                        <button onclick="setCategory('trash')" id="nav-trash" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                            <span class="flex items-center gap-2.5"><i data-lucide="trash-2" class="w-4 h-4"></i> Papelera</span>
+                            <span id="count-trash" class="text-xs bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">0</span>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- STORAGE USAGE METRIC -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400 font-medium">Almacenamiento</span>
+                        <span id="storageText" class="text-indigo-400 font-bold">0 MB / 15 GB</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div id="storageBar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-0 transition-all duration-300"></div>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Guardado persistentemente en tu navegador para esta cuenta.</p>
+                </div>
+            </aside>
+
+            <!-- MAIN CONTENT AREA -->
+            <main id="dropZone" class="flex-1 flex flex-col p-6 overflow-y-auto custom-scrollbar relative" 
+                  ondragover="handleDragOver(event)" 
+                  ondragleave="handleDragLeave(event)" 
+                  ondrop="handleDrop(event)">
+                
+                <!-- DRAG & DROP OVERLAY -->
+                <div id="dragOverlay" class="hidden absolute inset-0 bg-indigo-600/10 border-2 border-dashed border-indigo-500 backdrop-blur-sm z-30 flex flex-col items-center justify-center m-4 rounded-2xl pointer-events-none">
+                    <i data-lucide="upload-cloud" class="w-16 h-16 text-indigo-400 mb-2 animate-bounce"></i>
+                    <p class="text-lg font-semibold text-white">Suelta tus archivos o carpetas aquí</p>
+                    <p class="text-xs text-indigo-300">Se guardarán automáticamente en tu cuenta</p>
+                </div>
+
+                <!-- TOP CONTROL BAR & BREADCRUMBS -->
+                <div class="flex items-center justify-between mb-6">
+                    <!-- BREADCRUMBS NAVIGATION -->
+                    <nav id="breadcrumbs" class="flex items-center gap-2 text-sm text-slate-400 overflow-x-auto">
+                        <!-- Dynamic Breadcrumbs -->
+                    </nav>
+
+                    <!-- VIEW MODE SWITCHER -->
+                    <div class="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700/60">
+                        <button onclick="setViewMode('grid')" id="view-grid" class="p-1.5 rounded-lg text-white bg-indigo-600 shadow"><i data-lucide="grid" class="w-4 h-4"></i></button>
+                        <button onclick="setViewMode('list')" id="view-list" class="p-1.5 rounded-lg text-slate-400 hover:text-white"><i data-lucide="list" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+
+                <!-- FILE DISPLAY GRID/LIST -->
+                <div id="fileContainer" class="flex-1">
+                    <!-- Dynamically Rendered -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- CREATE FOLDER MODAL -->
+    <div id="folderModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">Nueva Carpeta</h3>
+            <input type="text" id="folderNameInput" placeholder="Nombre de la carpeta" 
+                class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-indigo-500 mb-6">
+            <div class="flex justify-end gap-3">
+                <button onclick="closeFolderModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-800">Cancelar</button>
+                <button onclick="createFolder()" class="px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-500">Crear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREVIEW MODAL -->
+    <div id="previewModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i id="previewIcon" data-lucide="file" class="w-5 h-5 text-indigo-400"></i>
+                    <h3 id="previewTitle" class="font-semibold text-white truncate max-w-md">Archivo</h3>
+                </div>
+                <button onclick="closePreviewModal()" class="text-slate-400 hover:text-white p-1 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div id="previewContent" class="flex-1 p-6 flex items-center justify-center overflow-auto bg-slate-950/50">
+                <!-- Preview Body -->
+            </div>
+            <div class="p-4 border-t border-slate-800 flex justify-end gap-3">
+                <button id="previewDownloadBtn" onclick="" class="px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-500 flex items-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> Descargar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastBody" class="bg-slate-800 border border-slate-700 text-white text-sm py-3 px-5 rounded-xl shadow-2xl flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+            <span id="toastText">Operación realizada</span>
+        </div>
+    </div>
+
+    <!-- APPLICATION LOGIC JS WITH INDEXEDDB PERSISTENCE -->
+    <script>
+        let currentUser = null;
+        let files = [];
+        let currentFolderId = 'root';
+        let folderBreadcrumb = [{ id: 'root', name: 'Mi Unidad' }];
+        let activeCategory = 'all';
+        let viewMode = 'grid';
+        const MAX_STORAGE = 15 * 1024 * 1024 * 1024; // 15 GB
+
+        // --- INDEXEDDB SETUP FOR RELIABLE & PERMANENT STORAGE ---
+        const DB_NAME = 'PersonalDriveDB';
+        const DB_VERSION = 1;
+        let db = null;
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const database = e.target.result;
+                    if (!database.objectStoreNames.contains('files')) {
+                        const store = database.createObjectStore('files', { keyPath: 'id' });
+                        store.createIndex('userEmail', 'userEmail', { unique: false });
+                    }
+                };
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve(db);
+                };
+                request.onerror = (e) => {
+                    console.error('IndexedDB error:', e);
+                    reject(e);
+                };
+            });
+        }
+
+        async function saveFileToDB(fileData) {
+            return new Promise((resolve, reject) => {
+                if (!db) return reject('DB context not initialized');
+                const tx = db.transaction('files', 'readwrite');
+                const store = tx.objectStore('files');
+                store.put(fileData);
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => reject(e);
+            });
+        }
+
+        async function removeFileFromDB(id) {
+            return new Promise((resolve, reject) => {
+                if (!db) return reject('DB context not initialized');
+                const tx = db.transaction('files', 'readwrite');
+                const store = tx.objectStore('files');
+                store.delete(id);
+                tx.oncomplete = () => resolve();
+                tx.onerror = (e) => reject(e);
+            });
+        }
+
+        async function loadFilesFromDB(email) {
+            return new Promise((resolve, reject) => {
+                if (!db) return reject('DB context not initialized');
+                const tx = db.transaction('files', 'readonly');
+                const store = tx.objectStore('files');
+                const index = store.index('userEmail');
+                const request = index.getAll(email);
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        // --- INIT APP ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initDB();
+                const savedUser = localStorage.getItem('personal_drive_user');
+                if (savedUser) {
+                    currentUser = JSON.parse(savedUser);
+                    await showApp();
+                }
+            } catch (err) {
+                console.error("Error al inicializar la base de datos", err);
+            }
+            lucide.createIcons();
+        });
+
+        // --- AUTHENTICATION ---
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('emailInput').value.trim().toLowerCase();
+            const nameInput = document.getElementById('nameInput').value.trim();
+            const name = nameInput || email.split('@')[0];
+
+            currentUser = {
+                email: email,
+                name: name,
+                avatar: name.charAt(0).toUpperCase()
+            };
+
+            localStorage.setItem('personal_drive_user', JSON.stringify(currentUser));
+            await showApp();
+            showToast(`¡Bienvenido de nuevo, ${currentUser.name}!`);
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            files = [];
+            localStorage.removeItem('personal_drive_user');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('app').classList.add('hidden');
+        }
+
+        async function showApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+
+            document.getElementById('userName').textContent = currentUser.name;
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('userAvatar').textContent = currentUser.avatar;
+
+            await loadUserData();
+            renderBreadcrumbs();
+            renderFiles();
+            updateStorageMetric();
+            lucide.createIcons();
+        }
+
+        // --- DATA LOAD & SAVE ---
+        async function loadUserData() {
+            if (!currentUser) return;
+            files = await loadFilesFromDB(currentUser.email);
+            updateCounts();
+        }
+
+        async function saveSingleFile(fileObj) {
+            fileObj.userEmail = currentUser.email;
+            await saveFileToDB(fileObj);
+            updateStorageMetric();
+            updateCounts();
+        }
+
+        // --- DOWNLOAD SYSTEM FOR ALL FILES ---
+        async function downloadFile(id) {
+            const file = files.find(f => f.id === id);
+            if (!file) return;
+
+            if (file.type === 'folder') return;
+
+            let downloadUrl = file.url;
+
+            // Handle Blob generation if blob data or base64 exists
+            if (file.data) {
+                const blob = dataURItoBlob(file.data);
+                downloadUrl = URL.createObjectURL(blob);
+            }
+
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = file.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Clean up memory blob if created
+            if (file.data) {
+                setTimeout(() => URL.revokeObjectURL(downloadUrl), 10000);
+            }
+            showToast(`Descargando "${file.name}"...`);
+        }
+
+        function dataURItoBlob(dataURI) {
+            const byteString = atob(dataURI.split(',')[1]);
+            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], { type: mimeString });
+        }
+
+        // --- NAVIGATION & FILTERS ---
+        function setCategory(cat) {
+            activeCategory = cat;
+            document.querySelectorAll('nav button').forEach(b => {
+                b.className = "w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800/50";
+            });
+            const activeNav = document.getElementById(`nav-${cat}`);
+            if (activeNav) {
+                activeNav.className = "w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition bg-indigo-600/10 text-indigo-400 border border-indigo-500/20";
+            }
+            renderFiles();
+        }
+
+        function openFolder(folderId, folderName) {
+            currentFolderId = folderId;
+            folderBreadcrumb.push({ id: folderId, name: folderName });
+            renderBreadcrumbs();
+            renderFiles();
+        }
+
+        function navigateToBreadcrumb(index) {
+            folderBreadcrumb = folderBreadcrumb.slice(0, index + 1);
+            currentFolderId = folderBreadcrumb[folderBreadcrumb.length - 1].id;
+            renderBreadcrumbs();
+            renderFiles();
+        }
+
+        function renderBreadcrumbs() {
+            const container = document.getElementById('breadcrumbs');
+            container.innerHTML = folderBreadcrumb.map((crumb, idx) => {
+                const isLast = idx === folderBreadcrumb.length - 1;
+                return `
+                    <div class="flex items-center gap-2">
+                        ${idx > 0 ? '<i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>' : ''}
+                        <button onclick="navigateToBreadcrumb(${idx})" 
+                            class="hover:text-slate-200 font-medium ${isLast ? 'text-white font-semibold' : ''}">
+                            ${crumb.name}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            document.getElementById('view-grid').className = mode === 'grid' ? 'p-1.5 rounded-lg text-white bg-indigo-600 shadow' : 'p-1.5 rounded-lg text-slate-400 hover:text-white';
+            document.getElementById('view-list').className = mode === 'list' ? 'p-1.5 rounded-lg text-white bg-indigo-600 shadow' : 'p-1.5 rounded-lg text-slate-400 hover:text-white';
+            renderFiles();
+        }
+
+        // --- RENDER FILES ---
+        function renderFiles() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const container = document.getElementById('fileContainer');
+
+            let filtered = files.filter(f => {
+                const matchesSearch = f.name.toLowerCase().includes(search);
+                if (activeCategory === 'trash') return f.inTrash && matchesSearch;
+                if (f.inTrash) return false;
+                if (activeCategory === 'starred') return f.starred && matchesSearch;
+                if (activeCategory === 'image') return f.category === 'image' && matchesSearch;
+                if (activeCategory === 'document') return f.category === 'document' && matchesSearch;
+                return f.folderId === currentFolderId && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="h-64 flex flex-col items-center justify-center text-slate-500 border border-dashed border-slate-800 rounded-2xl">
+                        <i data-lucide="folder-open" class="w-12 h-12 mb-3 text-slate-600"></i>
+                        <p class="text-sm">No hay archivos ni carpetas guardadas aquí.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            if (viewMode === 'grid') {
+                container.innerHTML = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        ${filtered.map(f => renderGridCard(f)).join('')}
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                        <table class="w-full text-left text-sm text-slate-400">
+                            <thead class="bg-slate-800/50 text-xs font-semibold uppercase text-slate-300">
+                                <tr>
+                                    <th class="py-3 px-4">Nombre</th>
+                                    <th class="py-3 px-4">Tamaño</th>
+                                    <th class="py-3 px-4">Fecha</th>
+                                    <th class="py-3 px-4 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                ${filtered.map(f => renderRowItem(f)).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+            lucide.createIcons();
+        }
+
+        function renderGridCard(f) {
+            const isFolder = f.type === 'folder';
+            return `
+                <div class="group bg-slate-900 border border-slate-800 hover:border-slate-700 p-4 rounded-2xl transition duration-200 relative flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="p-2.5 rounded-xl ${isFolder ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'}">
+                                <i data-lucide="${getIconName(f)}" class="w-6 h-6"></i>
+                            </div>
+                            <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                                <button onclick="toggleStar('${f.id}')" class="p-1 rounded-lg hover:bg-slate-800 ${f.starred ? 'text-amber-400' : 'text-slate-500'}">
+                                    <i data-lucide="star" class="w-4 h-4"></i>
+                                </button>
+                                ${!f.inTrash ? `
+                                    <button onclick="deleteFile('${f.id}')" class="p-1 text-slate-500 hover:text-red-400 rounded-lg hover:bg-slate-800">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                ` : `
+                                    <button onclick="restoreFile('${f.id}')" class="p-1 text-slate-500 hover:text-emerald-400 rounded-lg hover:bg-slate-800">
+                                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="deletePermanently('${f.id}')" class="p-1 text-slate-500 hover:text-red-500 rounded-lg hover:bg-slate-800" title="Eliminar definitivamente">
+                                        <i data-lucide="x-circle" class="w-4 h-4"></i>
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+
+                        <div class="cursor-pointer" onclick="${isFolder ? `openFolder('${f.id}', '${f.name}')` : `openPreview('${f.id}')`}">
+                            <h4 class="font-medium text-slate-200 text-sm truncate mb-1" title="${f.name}">${f.name}</h4>
+                            <p class="text-xs text-slate-500">${isFolder ? 'Carpeta' : formatBytes(f.size)}</p>
+                        </div>
+                    </div>
+
+                    ${!isFolder ? `
+                        <div class="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between">
+                            <button onclick="openPreview('${f.id}')" class="text-xs text-slate-400 hover:text-indigo-400 flex items-center gap-1">
+                                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Vista Previa
+                            </button>
+                            <button onclick="downloadFile('${f.id}')" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i> Descargar
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderRowItem(f) {
+            const isFolder = f.type === 'folder';
+            return `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="py-3 px-4 flex items-center gap-3 cursor-pointer" onclick="${isFolder ? `openFolder('${f.id}', '${f.name}')` : `openPreview('${f.id}')`}">
+                        <i data-lucide="${getIconName(f)}" class="w-5 h-5 ${isFolder ? 'text-amber-400' : 'text-indigo-400'}"></i>
+                        <span class="font-medium text-slate-200 truncate max-w-xs">${f.name}</span>
+                    </td>
+                    <td class="py-3 px-4 text-xs">${isFolder ? '-' : formatBytes(f.size)}</td>
+                    <td class="py-3 px-4 text-xs">${new Date(f.createdAt).toLocaleDateString()}</td>
+                    <td class="py-3 px-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="toggleStar('${f.id}')" class="p-1 ${f.starred ? 'text-amber-400' : 'text-slate-500 hover:text-amber-400'}">
+                                <i data-lucide="star" class="w-4 h-4"></i>
+                            </button>
+                            ${!isFolder ? `
+                                <button onclick="downloadFile('${f.id}')" class="p-1 text-slate-400 hover:text-indigo-400">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                </button>
+                            ` : ''}
+                            <button onclick="deleteFile('${f.id}')" class="p-1 text-slate-500 hover:text-red-400">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        function getIconName(f) {
+            if (f.type === 'folder') return 'folder';
+            if (f.category === 'image') return 'image';
+            if (f.category === 'document') return 'file-text';
+            return 'file';
+        }
+
+        // --- FILE UPLOAD & CREATION ---
+        function handleFileUpload(e) {
+            const uploadedFiles = Array.from(e.target.files);
+            if (!uploadedFiles.length) return;
+
+            uploadedFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const newFile = {
+                        id: 'file-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        category: getCategoryFromMime(file.type),
+                        folderId: currentFolderId,
+                        createdAt: new Date().toISOString(),
+                        starred: false,
+                        inTrash: false,
+                        data: event.target.result // Real Base64 Data URL
+                    };
+                    files.push(newFile);
+                    await saveSingleFile(newFile);
+                    renderFiles();
+                };
+                reader.readAsDataURL(file);
+            });
+            showToast(`${uploadedFiles.length} archivo(s) guardado(s) permanentemente.`);
+        }
+
+        function openFolderModal() {
+            document.getElementById('folderModal').classList.remove('hidden');
+            document.getElementById('folderNameInput').focus();
+        }
+
+        function closeFolderModal() {
+            document.getElementById('folderModal').classList.add('hidden');
+            document.getElementById('folderNameInput').value = '';
+        }
+
+        async function createFolder() {
+            const name = document.getElementById('folderNameInput').value.trim();
+            if (!name) return;
+
+            const folder = {
+                id: 'folder-' + Date.now(),
+                name: name,
+                size: 0,
+                type: 'folder',
+                category: 'folder',
+                folderId: currentFolderId,
+                createdAt: new Date().toISOString(),
+                starred: false,
+                inTrash: false
+            };
+            files.push(folder);
+            await saveSingleFile(folder);
+            renderFiles();
+            closeFolderModal();
+            showToast(`Carpeta '${name}' creada.`);
+        }
+
+        // --- DRAG AND DROP ---
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('dragOverlay').classList.remove('hidden');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('dragOverlay').classList.add('hidden');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('dragOverlay').classList.add('hidden');
+            const droppedFiles = Array.from(e.dataTransfer.files);
+            if (droppedFiles.length > 0) {
+                handleFileUpload({ target: { files: droppedFiles } });
+            }
+        }
+
+        // --- ACTIONS: STAR, DELETE, RESTORE ---
+        async function toggleStar(id) {
+            const file = files.find(f => f.id === id);
+            if (file) {
+                file.starred = !file.starred;
+                await saveSingleFile(file);
+                renderFiles();
+            }
+        }
+
+        async function deleteFile(id) {
+            const file = files.find(f => f.id === id);
+            if (!file) return;
+            if (file.inTrash) {
+                await deletePermanently(id);
+            } else {
+                file.inTrash = true;
+                await saveSingleFile(file);
+                showToast('Archivo movido a la papelera.');
+                renderFiles();
+            }
+        }
+
+        async function deletePermanently(id) {
+            files = files.filter(f => f.id !== id);
+            await removeFileFromDB(id);
+            updateStorageMetric();
+            updateCounts();
+            renderFiles();
+            showToast('Archivo eliminado definitivamente.');
+        }
+
+        async function restoreFile(id) {
+            const file = files.find(f => f.id === id);
+            if (file) {
+                file.inTrash = false;
+                await saveSingleFile(file);
+                renderFiles();
+                showToast('Archivo restaurado.');
+            }
+        }
+
+        // --- PREVIEW MODAL ---
+        function openPreview(id) {
+            const file = files.find(f => f.id === id);
+            if (!file) return;
+
+            document.getElementById('previewTitle').textContent = file.name;
+            const content = document.getElementById('previewContent');
+            const downloadBtn = document.getElementById('previewDownloadBtn');
+            downloadBtn.onclick = () => downloadFile(file.id);
+
+            if (file.category === 'image' && file.data) {
+                content.innerHTML = `<img src="${file.data}" class="max-h-[60vh] rounded-xl object-contain shadow-lg" />`;
+            } else {
+                content.innerHTML = `
+                    <div class="text-center p-8">
+                        <i data-lucide="file-text" class="w-16 h-16 text-indigo-400 mx-auto mb-4"></i>
+                        <p class="text-white font-medium mb-1">${file.name}</p>
+                        <p class="text-xs text-slate-400">${formatBytes(file.size)} - ${file.type || 'Documento'}</p>
+                    </div>
+                `;
+            }
+            document.getElementById('previewModal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closePreviewModal() {
+            document.getElementById('previewModal').classList.add('hidden');
+        }
+
+        // --- UTILS ---
+        function getCategoryFromMime(mime) {
+            if (mime.startsWith('image/')) return 'image';
+            if (mime.includes('pdf') || mime.includes('word') || mime.includes('text')) return 'document';
+            return 'other';
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function updateStorageMetric() {
+            const totalSize = files.reduce((acc, f) => acc + (f.size || 0), 0);
+            const percentage = Math.min(100, (totalSize / MAX_STORAGE) * 100);
+            document.getElementById('storageBar').style.width = `${Math.max(2, percentage)}%`;
+            document.getElementById('storageText').textContent = `${formatBytes(totalSize)} / 15 GB`;
+        }
+
+        function updateCounts() {
+            document.getElementById('count-all').textContent = files.filter(f => !f.inTrash).length;
+            document.getElementById('count-starred').textContent = files.filter(f => f.starred && !f.inTrash).length;
+            document.getElementById('count-trash').textContent = files.filter(f => f.inTrash).length;
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastText').textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
